@@ -39,6 +39,19 @@ function install_git() {
   fi
 }
 
+function get_shell_type() {
+  case $SHELL in
+  */zsh)
+    echo "zsh"
+    ;;
+  */bash)
+    echo "bash"
+    ;;
+  *)
+    echo "unsupported"
+  esac
+}
+
 # Clone the repo to ~/.work-cli
 if [[ ! -d $HOME/.work-cli ]]; then
   dotsay "+ Installing work-cli to @yellow[[$HOME/.work-cli]]"
@@ -47,6 +60,39 @@ else
   dotsay "+ work-cli is already installed at @yellow[[$HOME/.work-cli]], skipping @yellow[[git clone]]"
 fi
 
+shell_type=$(get_shell_type)
+
 # Add to shell files
+if ! command_exists "work" ; then
+  dotsay "+ Adding work-cli to your path..."
+  echo
+
+  shell_file="$HOME/.${shell_type}rc"
+
+  path_export="export PATH=\$HOME/.work-cli/bin:\$PATH"
+
+  dotsay "It looks like you use @yellow[[$shell_type]] for your shell."
+  echo
+  dotsay "Do you want me to add @yellow[[$path_export]] to your @yellow[[$shell_file]] file?"
+  echo
+  read -r -p "(Y/n) > " add_to_shell
+  echo
+
+  if [[ "$add_to_shell" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    dotsay "+ Adding PATH update to @yellow[[$shell_file]]"
+    echo "$path_export" >> $shell_file
+    echo
+  else
+    echo "No problem! You just need to add this line yourself to your shell init:"
+    echo
+    dotsay "@yellow[[$path_export]]"
+    echo
+  fi
+else
+  dotsay "+ @yellow[[work]] is already in your @yellow[[\$PATH]], skipping adding"
+  echo
+fi
 
 # Run setup script
+
+dotsay "All done! @yellow[[Reload]] your shell, and run @yellow[[work]] for help"
