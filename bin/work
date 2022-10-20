@@ -2,7 +2,6 @@
 
 # TODOs:
 #
-#   - Move to separate repo
 #   - Auto update by default every 48-72 hours
 
 api_key_file="$HOME/.config/work-cli/linear-api-key"
