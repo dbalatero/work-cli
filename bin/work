@@ -103,6 +103,13 @@ function require_gh() {
   ensure_gh_is_logged_in
 }
 
+function require_jq() {
+  if ! command_exists "jq"; then
+    print_action "[prereq] Installing jq (JSON parsing)"
+    brew install jq
+  fi
+}
+
 function require_fzf() {
   if ! command_exists "fzf"; then
     print_action "[prereq] Installing gh (Github CLI tools)"
@@ -259,8 +266,8 @@ function pr_show() {
 
 function pr_switch() {
   require_fzf
+  require_jq
   require_gh
-  # ensure_gh_is_logged_in
 
   local pull_requests=$(gh pr list --author "@me" --json headRefName,number,title,url)
 
@@ -345,6 +352,15 @@ function review() {
   echo
 }
 
+function setup() {
+  require_fzf
+  require_jq
+  require_gh
+
+  echo
+  echo "All dependencies are setup and ready!"
+}
+
 ####################################################################
 # Script start - arg parsing / command calling
 ####################################################################
@@ -393,6 +409,9 @@ case "$subcommand" in
     reviewer=$1; shift
 
     review "$reviewer"
+    ;;
+  setup)
+    setup
     ;;
   *)
     echo "Unknown subcommand: $subcommand"
