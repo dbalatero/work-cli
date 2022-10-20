@@ -7,10 +7,6 @@ function dotsay() {
   echo "$result"
 }
 
-function print_action() {
-  dotsay "@b@blue[[+ $1]]"
-}
-
 function _colorized() {
   echo "$@" | sed -E \
     -e 's/((@(red|green|yellow|blue|magenta|cyan|white|reset|b|u))+)[[]{2}([^]]*)[]]{2}/\1\4@reset/g' \
@@ -34,7 +30,7 @@ function command_exists() {
 
 function install_git() {
   if ! command_exists "git" ; then
-    print_action "Installing git..."
+    echo "+ Installing git..."
     brew install git
   fi
 }
@@ -68,15 +64,18 @@ if ! command_exists "work" ; then
   echo
 
   shell_file="$HOME/.${shell_type}rc"
-
   path_export="export PATH=\$HOME/.work-cli/bin:\$PATH"
 
-  dotsay "It looks like you use @yellow[[$shell_type]] for your shell."
-  echo
-  dotsay "Do you want me to add @yellow[[$path_export]] to your @yellow[[$shell_file]] file?"
-  echo
-  read -r -p "(Y/n) > " add_to_shell
-  echo
+  if [ "$shell_type" = "unsupported" ]; then
+    add_to_shell="no"
+  else
+    dotsay "It looks like you use @yellow[[$shell_type]] for your shell."
+    echo
+    dotsay "Do you want me to add @yellow[[$path_export]] to your @yellow[[$shell_file]] file?"
+    echo
+    read -r -p "(Y/n) > " add_to_shell
+    echo
+  fi
 
   if [[ "$add_to_shell" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     dotsay "+ Adding PATH update to @yellow[[$shell_file]]"
@@ -93,6 +92,12 @@ else
   echo
 fi
 
-# Run setup script
+# Run setup
+dotsay "+ Running first-time setup"
+$HOME/.work-cli/bin/work setup
+echo
+echo "---------------"
+echo
 
-dotsay "All done! @yellow[[Reload]] your shell, and run @yellow[[work]] for help"
+# Run setup script
+dotsay "@yellow[[work]] is installed! @yellow[[Reload]] your shell, and run @yellow[[work]] for help"
