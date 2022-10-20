@@ -1,0 +1,395 @@
+#!/usr/bin/env bash
+
+# TODOs:
+#
+#   - Move to separate repo
+#   - Auto update by default every 48-72 hours
+
+api_key_file="$HOME/.config/work-cli/linear-api-key"
+
+function dotsay() {
+  local result=$(_colorized $@)
+  echo "$result"
+}
+
+function print_action() {
+  dotsay "@b@blue[[+ $1]]"
+}
+
+function _colorized() {
+  echo "$@" | sed -E \
+    -e 's/((@(red|green|yellow|blue|magenta|cyan|white|reset|b|u))+)[[]{2}(.*)[]]{2}/\1\4@reset/g' \
+    -e "s/@red/$(tput setaf 1)/g" \
+    -e "s/@green/$(tput setaf 2)/g" \
+    -e "s/@yellow/$(tput setaf 3)/g" \
+    -e "s/@blue/$(tput setaf 4)/g" \
+    -e "s/@magenta/$(tput setaf 5)/g" \
+    -e "s/@cyan/$(tput setaf 6)/g" \
+    -e "s/@white/$(tput setaf 7)/g" \
+    -e "s/@reset/$(tput sgr0)/g" \
+    -e "s/@b/$(tput bold)/g" \
+    -e "s/@u/$(tput sgr 0 1)/g"
+}
+
+function command_exists() {
+  local name=$1
+
+  command -v "$name" >/dev/null 2>&1
+}
+
+function require_gh() {
+  if ! command_exists "gh"; then
+    print_action "[prereq] Installing FZF (awesome CLI fuzzy finder)"
+    brew install gh
+  fi
+}
+
+function linear_api_key() {
+  cat "$api_key_file"
+}
+
+function require_linear_api_key() {
+  if [[ ! -f "$api_key_file" ]]; then
+    echo '
+******************************
+* Linear setup
+******************************
+'
+    dotsay "You need to @yellow[[set up your Linear API key]]."
+    echo
+    echo   "Would you like to:"
+    echo   "  1. Open the Linear settings page"
+    echo -n "  "
+    dotsay "  2. Generate a @yellow[[Personal API Token]]"
+    echo   "  3. Paste it back here"
+    echo
+
+    read -r -p "? (y/n) > " response
+    echo
+
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+      mkdir -p $(dirname "$api_key_file")
+
+      local url="https://linear.app/stainless/settings/api"
+
+      print_action "Opening $url in Chrome"
+      open -na "Google Chrome" --args --new-window "$url"
+
+      echo
+      read -r -p "Paste your Linear API token and press enter > " api_token
+
+      echo
+      echo "$api_token" > "$api_key_file"
+
+      echo "Finished one-time Linear setup"
+      echo
+      echo "******************************"
+      echo
+    else
+      echo "non-yes answer, exiting"
+      exit 1
+    fi
+  fi
+}
+
+# function ensure_gh_is_logged_in() {
+#   # TODO
+# }
+
+function require_fzf() {
+  if ! command_exists "fzf"; then
+    print_action "[prereq] Installing gh (Github CLI tools)"
+    brew install fzf
+  fi
+}
+
+function git_current_branch() {
+  git symbolic-ref --short HEAD
+}
+
+function git_main_branch() {
+  sed -e "s/^.*\///" < .git/refs/remotes/origin/HEAD
+}
+
+# https://medium.com/@bit2pixel/how-i-navigate-hundreds-of-tabs-on-chrome-with-jxa-and-alfred-9bbf971af02b
+function focus_tab_or_open() {
+  local url="$1"
+  local focus_result=$(osascript -s o -l JavaScript << EOF 2>&1
+      const chrome = Application('Google Chrome');
+      let found = false;
+
+      chrome.windows().forEach((window) => {
+        window.tabs().forEach((tab, tabIdx) => {
+          if (tab.url().startsWith("$url")) {
+            // focus the tab
+            window.visible = true;
+            window.index = 1;
+            window.activeTabIndex = tabIdx + 1;
+            chrome.activate();
+
+            found = true;
+          }
+        });
+      });
+
+      console.log(found ? "Focused" : "Not found");
+EOF
+  )
+
+  if [ "$focus_result" != "Focused" ]; then
+    # Open the URL instead
+    open -a "Google Chrome" "$url"
+  fi
+}
+
+function trim() {
+  local var="$*"
+
+  # remove leading whitespace characters
+  var="${var#"${var%%[![:space:]]*}"}"
+  # remove trailing whitespace characters
+  var="${var%"${var##*[![:space:]]}"}"
+
+  printf '%s' "$var"
+}
+
+function branch_name_from_title() {
+  echo "$1" | \
+    sed "s/[^[:alpha:] ]//g" | \
+    tr '[:upper:]' '[:lower:]' | \
+    sed -r 's/ +/-/g'
+}
+
+####################################################################
+# Commands
+####################################################################
+
+function begin() {
+  require_gh
+  require_linear_api_key
+
+  linear_id=$1
+
+  if ! git diff --quiet ; then
+    echo "Error: git tree is dirty, cannot branch"
+    echo
+    git status
+    echo
+    exit 1
+  fi
+
+  echo
+  read -r -p "Enter a title for your PR:
+
+  > " pr_title
+
+  echo
+
+  pr_title=$(trim "$pr_title")
+
+  if [ "$pr_title" = "" ]; then
+    echo "Error: Empty PR title, aborting"
+    exit 1
+  fi
+
+  local base_branch=$(git_main_branch)
+  local branch_name
+
+  if [ "$linear_id" = "" ]; then
+    branch_name="$USER/$(branch_name_from_title "$pr_title")"
+  else
+    branch_name="$USER/$linear_id/$(branch_name_from_title "$pr_title")"
+  fi
+
+  print_action "Fetching origin main"
+  git fetch origin $base_branch
+  echo
+
+  print_action "Creating $branch_name"
+  git checkout -b "$branch_name" "origin/$base_branch"
+  echo
+
+  print_action "Creating initial commit"
+  git commit --allow-empty -m "[skip ci] Initial commit"
+  echo
+
+  print_action "Pushing branch to Github"
+  git push -u origin "$branch_name"
+  echo
+
+  print_action "Creating PR"
+
+  local pr_url=$(
+    gh pr create \
+      --assignee "@me" \
+      --base "$base_branch" \
+      --body "<!-- body -->" \
+      --draft \
+      --head "$branch_name" \
+      --title "$pr_title"
+  )
+
+  echo "Done"
+  echo
+
+  print_action "Opening PR in Chrome"
+  open -a "Google Chrome" "$pr_url"
+  echo "Done"
+}
+
+function pr_show() {
+  require_gh
+
+  local url
+  url=$(gh pr view --json url -q ".url" 2>/dev/null)
+  local status=$?
+
+  if test $status -eq 0; then
+    focus_tab_or_open "$url"
+  else
+    dotsay "Error: Could not find a PR for the @yellow[[$(git_current_branch)]] branch"
+  fi
+}
+
+function pr_switch() {
+  require_fzf
+  require_gh
+  # ensure_gh_is_logged_in
+
+  local pull_requests=$(gh pr list --author "@me" --json headRefName,number,title,url)
+
+  if [ "$pull_requests" = "[]" ]; then
+    echo "You have no open PRs in this repo."
+    exit 0
+  fi
+
+  local as_table=$(
+    echo $pull_requests | \
+      jq --raw-output '. | map("\(.number),\(.title),\(.headRefName)") | flatten[]' | \
+      sort
+  )
+
+  local selected_pr=$(
+    echo -e "ID,Title,Branch name\n$as_table" | \
+      column -t -s ',' | \
+      fzf \
+        --header "Select a PR to switch branches" \
+        --layout reverse \
+        --height=10 \
+        --header-lines 1
+  )
+
+  local selected_num=$(echo $selected_pr | awk '{print $1}')
+  local selected_branch=$(
+    echo $pull_requests | \
+      jq --raw-output ".[] | select(.number == $selected_num) | .headRefName"
+  )
+
+  dotsay "Checking out branch @yellow[[$selected_branch]]"
+  git checkout "$selected_branch"
+}
+
+function edit_pr_in_editor() {
+  if [ "$EDITOR" = "" ]; then
+    echo "Error: your EDITOR is not set"
+    exit 1
+  fi
+
+  # Create the description file
+  local branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
+  local description_dir=/tmp/work-cli/descriptions
+  local description_file=$description_dir/$branch_name_basename.md
+
+  mkdir -p $description_dir
+  gh pr view --json body -q ".body" > $description_file
+
+  print_action "Opening $description_file..."
+
+  # Open Vim
+  $EDITOR $description_file
+  echo "Done editing"
+  echo
+
+  # Update the PR
+  print_action "Updating PR description..."
+  gh pr edit -F "$description_file"
+  echo
+
+  print_action "Marking PR ready..."
+  gh pr ready
+  echo
+
+  # Cleanup
+  rm $description_file
+}
+
+function review() {
+  local reviewer=$(echo $1 | sed 's/@//g')
+
+  if [ "$reviewer" = "" ]; then
+    echo "Error: No reviewer passed"
+    exit 1
+  fi
+
+  edit_pr_in_editor
+
+  # Assign reviewer
+  print_action "Assigning reviewer..."
+  gh pr edit --add-reviewer "$reviewer"
+  echo
+}
+
+####################################################################
+# Script start - arg parsing / command calling
+####################################################################
+
+# https://sookocheff.com/post/bash/parsing-bash-script-arguments-with-shopts/
+subcommand=$1; shift
+
+case "$subcommand" in
+  begin)
+    while getopts ":l:" opt; do
+      case ${opt} in
+        l )
+          linear_id=$OPTARG
+          ;;
+        \? )
+          echo "Invalid Option: -$OPTARG" 1>&2
+          exit 1
+          ;;
+        : )
+          echo "Invalid Option: -$OPTARG requires an argument" 1>&2
+          exit 1
+          ;;
+      esac
+    done
+    shift $((OPTIND -1))
+
+    begin "$linear_id"
+    ;;
+  pr)
+    pr_command=$1; shift
+
+    case "$pr_command" in
+      show)
+        pr_show
+        ;;
+      switch)
+        pr_switch
+        ;;
+      *)
+        dotsay "Unknown $(dotsay "@cyan[[work pr]]") subcommand: $(dotsay "@yellow[[$pr_command]]")"
+        exit 1
+        ;;
+    esac
+    ;;
+  review)
+    reviewer=$1; shift
+
+    review "$reviewer"
+    ;;
+  *)
+    echo "Unknown subcommand: $subcommand"
+    exit 1
+    ;;
+esac
