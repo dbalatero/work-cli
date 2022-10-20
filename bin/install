@@ -39,9 +39,14 @@ function install_git() {
   fi
 }
 
+# Clone the repo to ~/.work-cli
 if [[ ! -d $HOME/.work-cli ]]; then
   dotsay "+ Installing work-cli to @yellow[[$HOME/.work-cli]]"
   git clone https://github.com/dbalatero/work-cli $HOME/.work-cli
 else
   dotsay "+ work-cli is already installed at @yellow[[$HOME/.work-cli]], skipping @yellow[[git clone]]"
 fi
+
+# Add to shell files
+
+# Run setup script
