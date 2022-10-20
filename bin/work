@@ -6,8 +6,6 @@
 
 set -e
 
-api_key_file="$HOME/.config/work-cli/linear-api-key"
-
 command_ran="$(basename $0) $@"
 
 function dotsay() {
@@ -105,54 +103,6 @@ function require_gh() {
   ensure_gh_is_logged_in
 }
 
-function linear_api_key() {
-  cat "$api_key_file"
-}
-
-function require_linear_api_key() {
-  if [[ ! -f "$api_key_file" ]]; then
-    echo '
-******************************
-* Linear setup
-******************************
-'
-    dotsay "You need to @yellow[[set up your Linear API key]]."
-    echo
-    echo   "Would you like to:"
-    echo   "  1. Open the Linear settings page"
-    echo -n "  "
-    dotsay "  2. Generate a @yellow[[Personal API Token]]"
-    echo   "  3. Paste it back here"
-    echo
-
-    read -r -p "? (y/n) > " response
-    echo
-
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-      mkdir -p $(dirname "$api_key_file")
-
-      local url="https://linear.app/stainless/settings/api"
-
-      print_action "Opening $url in Chrome"
-      open -na "Google Chrome" --args --new-window "$url"
-
-      echo
-      read -r -p "Paste your Linear API token and press enter > " api_token
-
-      echo
-      echo "$api_token" > "$api_key_file"
-
-      echo "Finished one-time Linear setup"
-      echo
-      echo "******************************"
-      echo
-    else
-      echo "non-yes answer, exiting"
-      exit 1
-    fi
-  fi
-}
-
 function require_fzf() {
   if ! command_exists "fzf"; then
     print_action "[prereq] Installing gh (Github CLI tools)"
@@ -223,7 +173,6 @@ function branch_name_from_title() {
 
 function begin() {
   require_gh
-  require_linear_api_key
 
   linear_id=$1
 
