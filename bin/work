@@ -4,7 +4,11 @@
 #
 #   - Auto update by default every 48-72 hours
 
+set -e
+
 api_key_file="$HOME/.config/work-cli/linear-api-key"
+
+command_ran="$(basename $0) $@"
 
 function dotsay() {
   local result=$(_colorized $@)
@@ -17,7 +21,7 @@ function print_action() {
 
 function _colorized() {
   echo "$@" | sed -E \
-    -e 's/((@(red|green|yellow|blue|magenta|cyan|white|reset|b|u))+)[[]{2}(.*)[]]{2}/\1\4@reset/g' \
+    -e 's/((@(red|green|yellow|blue|magenta|cyan|white|reset|b|u))+)[[]{2}([^]]*)[]]{2}/\1\4@reset/g' \
     -e "s/@red/$(tput setaf 1)/g" \
     -e "s/@green/$(tput setaf 2)/g" \
     -e "s/@yellow/$(tput setaf 3)/g" \
@@ -36,11 +40,69 @@ function command_exists() {
   command -v "$name" >/dev/null 2>&1
 }
 
+function ensure_gh_is_logged_in() {
+  if ! gh auth status >/dev/null 2>&1 ; then
+    echo '
+*****************************************
+* Github API key setup (first-time run) *
+*****************************************
+'
+    dotsay "You need to @yellow[[login to gh]] with a Github API token."
+    echo
+    dotsay "Type @yellow[[yes]] at the prompt to:"
+    echo
+    dotsay "1. @yellow[[Automatically open]] your Github tokens setting page"
+    dotsay "2. Select @yellow[[No expiration]] for @yellow[[Expiration]]"
+    dotsay "3. Press the @yellow[[Generate token]] button to create the token"
+    dotsay "4. And then come back here to @yellow[[paste the API token]] in"
+    echo
+    read -r -p "I understand and want to continue (Y/n) > " should_continue
+    echo
+
+    if [[ ! "$should_continue" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+      echo   "Non-yes answer, aborting setup!"
+      dotsay "Re-run @yellow[[$command_ran]] later to pick up where you left off."
+      exit 1
+    fi
+
+    print_action "Opening up your Github API token settings..."
+    open -na "Google Chrome" --args --new-window "https://github.com/settings/tokens/new?description=work-cli+gh+command+line+token&scopes=repo,read:org"
+    echo
+
+    read -r -p "Paste in your Github API token > " api_token
+    api_token=$(trim "$api_token")
+    echo
+
+    if [ "$api_token" = "" ]; then
+      echo "Error: you entered a blank API key"
+      dotsay "Re-run @yellow[[$command_ran]] later to pick up where you left off."
+      exit 1
+    fi
+
+    print_action "Logging you into gh..."
+
+    echo "$api_token" | gh auth login \
+      --hostname github.com \
+      --git-protocol ssh \
+      --with-token
+
+    if ! gh auth status >/dev/null 2>&1 ; then
+      echo "Weird - you don't seem to be logged into Github after pasting the key."
+      dotsay "Run @yellow[[gh auth status]] to get some debug info."
+      exit 1
+    else
+      echo "Done with setup"
+    fi
+  fi
+}
+
 function require_gh() {
   if ! command_exists "gh"; then
     print_action "[prereq] Installing FZF (awesome CLI fuzzy finder)"
     brew install gh
   fi
+
+  ensure_gh_is_logged_in
 }
 
 function linear_api_key() {
@@ -90,10 +152,6 @@ function require_linear_api_key() {
     fi
   fi
 }
-
-# function ensure_gh_is_logged_in() {
-#   # TODO
-# }
 
 function require_fzf() {
   if ! command_exists "fzf"; then
