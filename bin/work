@@ -2,11 +2,14 @@
 
 # TODOs:
 #
+#   - Add overall help docs and/or help foreach command
+#   - Truncate branch name to 50 chars
 #   - Auto update by default every 48-72 hours
 
 set -e
 
 command_ran="$(basename $0) $@"
+script_args="$@"
 
 function dotsay() {
   local result=$(_colorized $@)
@@ -16,6 +19,10 @@ function dotsay() {
 function print_action() {
   dotsay "@b@blue[[+ $1]]"
 }
+
+BOLD=$(tput bold)
+YELLOW=$(tput setaf 3)
+RESET=$(tput sgr0)
 
 function _colorized() {
   echo "$@" | sed -E \
@@ -174,9 +181,123 @@ function branch_name_from_title() {
     sed -r 's/ +/-/g'
 }
 
+function edit_pr_in_editor() {
+  if [ "$EDITOR" = "" ]; then
+    echo "Error: your EDITOR is not set"
+    exit 1
+  fi
+
+  # Create the description file
+  local branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
+  local description_dir=/tmp/work-cli/descriptions
+  local description_file=$description_dir/$branch_name_basename.md
+
+  mkdir -p $description_dir
+  gh pr view --json body -q ".body" > $description_file
+
+  print_action "Opening $description_file..."
+
+  # Open Vim
+  $EDITOR $description_file
+  echo "Done editing"
+  echo
+
+  # Update the PR
+  print_action "Updating PR description..."
+  gh pr edit -F "$description_file"
+  echo
+
+  print_action "Marking PR ready..."
+  gh pr ready
+  echo
+
+  # Cleanup
+  rm $description_file
+}
+
 ####################################################################
 # Commands
 ####################################################################
+
+function help_work() {
+  cat << EOF
+Remove every day developer toil around Github, branches, and reviews.
+
+${BOLD}USAGE${RESET}
+  work <command> <subcommand> [flags]
+
+${BOLD}CORE COMMANDS${RESET}
+  begin:   Create a new pull request off origin/main
+  pr:      Switch between and view your pull requests
+  review:  Quickly request a review and edit your PR description in one shot
+
+${BOLD}ONBOARDING COMMANDS${RESET}
+  setup:   One-time setup to install required dependencies
+
+${BOLD}FLAGS${RESET}
+  -h    Show help for any command
+
+${BOLD}EXAMPLES${RESET}
+  $ work begin              # create a new PR
+  $ work review cindy       # request a review from @cindy on Github
+  $ work pr switch          # quick switch to another PR's branch
+  $ work pr show            # quick open your PR in Chrome
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
+}
+
+function help_pr() {
+  cat << EOF
+Work with your pull requests on Github
+
+${BOLD}USAGE${RESET}
+  work pr <command> [flags]
+
+${BOLD}CORE COMMANDS${RESET}
+  show:    Open your PR on Github in Chrome
+  switch:  Quickly switch to other PR branches with a fast fuzzy finder
+
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
+}
+
+function help_begin() {
+  cat << EOF
+Prompts you for a new PR title, and:
+
+  * Fetches the latest origin/main (or master)
+  * Creates a new Git branch
+  * Pushes & creates a new pull request
+
+${BOLD}USAGE${RESET}
+  work begin
+
+${BOLD}FLAGS${RESET}
+  -l    Linear ticket ID you'd like attached to this pull request (STA-123)
+
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
+
+${BOLD}EXAMPLES${RESET}
+  # Start a new pull request
+  git checkout main
+  work begin
+
+  # Start a new pull request with a Linear ticket ID
+  # This will create a branch with the ticket ID in the name
+  git checkout main
+  work begin -l STA-123
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
+}
 
 function begin() {
   require_gh
@@ -250,6 +371,31 @@ function begin() {
   echo "Done"
 }
 
+function help_pr_show() {
+  cat << EOF
+Open the current pull request in Chrome.
+
+If the pull request is ${BOLD}already${RESET} open in Chrome, it will focus the tab instead
+of opening a new one.
+
+${BOLD}USAGE${RESET}
+  work pr show
+
+${BOLD}FLAGS${RESET}
+  none
+
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
+
+${BOLD}EXAMPLES${RESET}
+  # Open the current branch's PR in Chrome
+  work pr show
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
+}
+
 function pr_show() {
   require_gh
 
@@ -262,6 +408,29 @@ function pr_show() {
   else
     dotsay "Error: Could not find a PR for the @yellow[[$(git_current_branch)]] branch"
   fi
+}
+
+function help_pr_switch() {
+  cat << EOF
+Switch to any of your open pull request's branches with a fast fuzzy finder.
+
+${BOLD}USAGE${RESET}
+  work pr switch
+
+${BOLD}FLAGS${RESET}
+  none
+
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
+
+${BOLD}EXAMPLES${RESET}
+  # Show a fuzzy finder with all your open PRs
+  # Switch by selecting the PR and pressing Enter
+  work pr switch
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
 }
 
 function pr_switch() {
@@ -302,54 +471,62 @@ function pr_switch() {
   git checkout "$selected_branch"
 }
 
-function edit_pr_in_editor() {
-  if [ "$EDITOR" = "" ]; then
-    echo "Error: your EDITOR is not set"
-    exit 1
-  fi
+function help_review() {
+  cat << EOF
+Request a pull request review.
 
-  # Create the description file
-  local branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
-  local description_dir=/tmp/work-cli/descriptions
-  local description_file=$description_dir/$branch_name_basename.md
+This script will:
 
-  mkdir -p $description_dir
-  gh pr view --json body -q ".body" > $description_file
+- Open ${YELLOW}$EDITOR${RESET}, allowing you to edit the PR description
+- Request a review from a user
 
-  print_action "Opening $description_file..."
+${BOLD}USAGE${RESET}
+  work review [reviewer_username]
 
-  # Open Vim
-  $EDITOR $description_file
-  echo "Done editing"
-  echo
+${BOLD}FLAGS${RESET}
+  none
 
-  # Update the PR
-  print_action "Updating PR description..."
-  gh pr edit -F "$description_file"
-  echo
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
 
-  print_action "Marking PR ready..."
-  gh pr ready
-  echo
+${BOLD}EXAMPLES${RESET}
+  # Request a review from @dbalatero
+  work review dbalatero
 
-  # Cleanup
-  rm $description_file
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
 }
 
 function review() {
-  local reviewer=$(echo $1 | sed 's/@//g')
-
-  if [ "$reviewer" = "" ]; then
-    echo "Error: No reviewer passed"
-    exit 1
-  fi
-
   edit_pr_in_editor
 
   # Assign reviewer
   print_action "Assigning reviewer..."
   gh pr edit --add-reviewer "$reviewer"
   echo
+}
+
+function help_setup() {
+  cat << EOF
+Does an initial one-time setup of all required ${YELLOW}work${RESET} dependencies.
+
+This is not required to run, as ${YELLOW}work${RESET} will install dependencies on
+demand when needed. However, the initial ${YELLOW}bin/install${RESET} script does
+run it for you.
+
+${BOLD}USAGE${RESET}
+  work setup
+
+${BOLD}FLAGS${RESET}
+  none
+
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
 }
 
 function setup() {
@@ -361,26 +538,52 @@ function setup() {
   echo "All dependencies are setup and ready!"
 }
 
+function print_help() {
+  local command=$1
+
+  if [[ "${script_args[*]}" =~ "-h" ]]; then
+    help_${command}
+    return 0
+  else
+    return 1
+  fi
+}
+
 ####################################################################
 # Script start - arg parsing / command calling
 ####################################################################
 
 # https://sookocheff.com/post/bash/parsing-bash-script-arguments-with-shopts/
-subcommand=$1; shift
+subcommand=$1
+
+if [ "$subcommand" = "" ]; then
+  help_work
+  exit 0
+else
+  shift
+fi
 
 case "$subcommand" in
   begin)
-    while getopts ":l:" opt; do
+    while getopts ":l:h" opt; do
       case ${opt} in
+        h )
+          help_begin
+          exit 0
+          ;;
         l )
           linear_id=$OPTARG
           ;;
         \? )
-          echo "Invalid Option: -$OPTARG" 1>&2
+          dotsay "@red[[Error: Invalid Option: -$OPTARG]]" 1>&2
+          echo
+          help_begin
           exit 1
           ;;
         : )
-          echo "Invalid Option: -$OPTARG requires an argument" 1>&2
+          dotsay "@red[[Invalid Option: -$OPTARG requires an argument]]" 1>&2
+          echo
+          help_begin
           exit 1
           ;;
       esac
@@ -390,28 +593,56 @@ case "$subcommand" in
     begin "$linear_id"
     ;;
   pr)
-    pr_command=$1; shift
+    pr_command=$1
+
+    if [ "$pr_command" = "" ]; then
+      dotsay "@red[[Error: work pr requires a subcommand]]"
+      echo
+      help_pr
+      exit 1
+    else
+      shift
+    fi
 
     case "$pr_command" in
+      -h)
+        help_pr
+        exit 0
+        ;;
       show)
-        pr_show
+        print_help "pr_show" || pr_show
         ;;
       switch)
-        pr_switch
+        print_help "pr_switch" || pr_switch
         ;;
       *)
-        dotsay "Unknown $(dotsay "@cyan[[work pr]]") subcommand: $(dotsay "@yellow[[$pr_command]]")"
+        dotsay "@red[[Error: Unknown work pr subcommand: $pr_command]]"
+        echo
+        help_pr
         exit 1
         ;;
     esac
     ;;
   review)
-    reviewer=$1; shift
+    reviewer=$(echo "$1" | sed 's/@//g')
 
-    review "$reviewer"
+    if [ "$reviewer" = "" ]; then
+      dotsay "@red[[Error: No reviewer passed]]"
+      echo
+      help_review
+      exit 1
+    else
+      shift
+    fi
+
+    print_help "review" || review "$reviewer"
     ;;
   setup)
-    setup
+    print_help "setup" || setup
+    ;;
+  -h)
+    help_work
+    exit 0
     ;;
   *)
     echo "Unknown subcommand: $subcommand"
