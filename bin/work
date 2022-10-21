@@ -206,6 +206,10 @@ function edit_pr_in_editor() {
   echo "Done editing"
   echo
 
+  print_action "Pushing branch to Github..."
+  git push -u --force-with-lease origin "$(git_current_branch)"
+  echo
+
   # Update the PR
   print_action "Updating PR description..."
   gh pr edit -F "$description_file"
