@@ -130,7 +130,7 @@ function git_main_branch() {
   sed -e "s/^.*\///" < .git/refs/remotes/origin/HEAD
 }
 
-function git_status_dirty() {
+function git_status_clean() {
   git diff --quiet
 }
 
@@ -247,16 +247,12 @@ function auto_update_work_cli_if_needed() {
   cd ~/.work-cli
   local work_current_branch=$(git_current_branch)
 
-  if git_status_dirty ; then
-    echo "dirty"
+  if ! git_status_clean ; then
     cd - >/dev/null # restore dir
     return 0
   else
-    echo "not dirty"
     cd - >/dev/null # restore dir
   fi
-
-  echo "current: $work_current_branch"
 
   # We only update while we're on the main branch.
   if [ "$work_current_branch" = "main" ]; then
@@ -366,7 +362,7 @@ function begin() {
 
   linear_id=$1
 
-  if ! git_status_dirty ; then
+  if ! git_status_clean ; then
     echo "Error: git tree is dirty, cannot branch"
     echo
     git status
