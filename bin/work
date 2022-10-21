@@ -248,11 +248,15 @@ function auto_update_work_cli_if_needed() {
   local work_current_branch=$(git_current_branch)
 
   if git_status_dirty ; then
+    echo "dirty"
     cd - >/dev/null # restore dir
     return 0
   else
+    echo "not dirty"
     cd - >/dev/null # restore dir
   fi
+
+  echo "current: $work_current_branch"
 
   # We only update while we're on the main branch.
   if [ "$work_current_branch" = "main" ]; then
