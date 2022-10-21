@@ -7,6 +7,8 @@ Awesome command line tools for managing the lifecycle of Github pull requests.
 * Open or focus your PR in the browser with `work pr show`
 * Ask for a review on Github with `work review alice`
 
+Currently only works on macOS, but could be tweaked for Linux/Windows!
+
 <table>
 <thead>
 <tr>
@@ -75,6 +77,13 @@ git clone https://github.com/dbalatero/work-cli.git ~/.work-cli
 cd ~/.work-cli
 bin/install       # don't forget to audit the script, you nerd
 ```
+
+### Additional setup/dependencies
+
+* `work` will always automatically install any dependencies it needs for you.
+* Occasionally you'll need to generate an API key (Github) - `work` will magically prompt you when it's time to do so.
+
+My philosophy is that READMEs are bad, only 20% of people read them, and it's better if software just does everything for you, at the exact moment you need it.
 
 ## FAQ
 
