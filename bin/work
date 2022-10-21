@@ -9,6 +9,10 @@ set -e
 command_ran="$(basename $0) $@"
 script_args="$@"
 
+function indent() {
+  sed 's/^/    /'
+}
+
 function dotsay() {
   local result=$(_colorized $@)
   echo "$result"
@@ -261,9 +265,11 @@ function auto_update_work_cli_if_needed() {
     cd - >/dev/null # restore dir
 
     if ! echo "$update_result" | grep -q "up to date" ; then
-      print_action "+ Auto-updating work-cli..."
+      print_action "Auto-updating work-cli..."
       echo
-      echo "$update_result"
+      echo "$update_result" | indent
+      echo
+      echo "Done!"
       echo
     fi
 
