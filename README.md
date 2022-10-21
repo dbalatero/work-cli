@@ -33,13 +33,13 @@ LEARN MORE
 
 ## Installation
 
-I'm busy, can I paste in 1 line of shell code?
+⏰ I'm busy, can I paste in 1 line of shell code?
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/dbalatero/work-cli/main/bin/install)
 ```
 
-I'm paranoid about running code directly from curl:
+🤓 I'm paranoid about running code directly from curl:
 
 ```bash
 git clone https://github.com/dbalatero/work-cli.git ~/.work-cli
