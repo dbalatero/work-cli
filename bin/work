@@ -2,7 +2,6 @@
 
 # TODOs:
 #
-#   - Add overall help docs and/or help foreach command
 #   - Truncate branch name to 50 chars
 #   - Auto update by default every 48-72 hours
 
