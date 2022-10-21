@@ -2,6 +2,11 @@
 
 Awesome command line tools for managing the lifecycle of Github pull requests.
 
+* Branch and open a beautiful draft PR by typing `work begin` from `main/master`
+* Fast switch between your open PRs with `work pr switch`
+* Open or focus your PR in the browser with `work pr show`
+* Ask for a review on Github with `work review alice`
+
 ```
 $ work -h
 
