@@ -521,6 +521,11 @@ function pr_switch() {
         --header-lines 1
   )
 
+  if [ "$selected_pr" = "" ]; then
+    # No PR selected, exit early
+    exit 0
+  fi
+
   local selected_num=$(echo $selected_pr | awk '{print $1}')
   local selected_branch=$(
     echo $pull_requests | \
