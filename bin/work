@@ -236,7 +236,7 @@ function auto_update_work_cli_if_needed() {
     local elapsed_seconds=$((current_seconds - last_modified_seconds))
 
     # Only attempt an auto update every 48 hours
-    local min_elapsed_seconds=5
+    local min_elapsed_seconds=172800
 
     if [ "$elapsed_seconds" -gt "$min_elapsed_seconds" ]; then
       should_update=1
@@ -269,7 +269,7 @@ function auto_update_work_cli_if_needed() {
       echo
       echo "$update_result" | indent
       echo
-      echo "Done!"
+      echo "-----------------------"
       echo
     fi
 
