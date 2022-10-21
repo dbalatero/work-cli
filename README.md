@@ -52,7 +52,7 @@ FLAGS
   -h    Show help for any command
 
 EXAMPLES
-  $ work begin              # create a new PR
+  $ work begin              # create a new branch and open a draft PR
   $ work review cindy       # request a review from @cindy on Github
   $ work pr switch          # quick switch to another PR's branch
   $ work pr show            # quick open your PR in Chrome
