@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-# TODOs:
-#
-#   - Auto update by default every 48-72 hours
-
 set -e
 
 command_ran="$(basename $0) $@"
