@@ -130,6 +130,10 @@ function git_main_branch() {
   sed -e "s/^.*\///" < .git/refs/remotes/origin/HEAD
 }
 
+function git_status_dirty() {
+  git diff --quiet
+}
+
 # https://medium.com/@bit2pixel/how-i-navigate-hundreds-of-tabs-on-chrome-with-jxa-and-alfred-9bbf971af02b
 function focus_tab_or_open() {
   local url="$1"
@@ -213,6 +217,60 @@ function edit_pr_in_editor() {
 
   # Cleanup
   rm $description_file
+}
+
+function auto_update_work_cli_if_needed() {
+  local should_update=0
+  local last_updated="$HOME/.config/work-cli/last-updated"
+  mkdir -p "$(dirname "$last_updated")"
+
+  if [[ ! -f "$last_updated" ]]; then
+    touch "$last_updated"
+  else
+    local last_modified_seconds=$(date -r "$last_updated" +%s)
+    local current_seconds=$(date +%s)
+    local elapsed_seconds=$((current_seconds - last_modified_seconds))
+
+    # Only attempt an auto update every 48 hours
+    local min_elapsed_seconds=5
+
+    if [ "$elapsed_seconds" -gt "$min_elapsed_seconds" ]; then
+      should_update=1
+    fi
+  fi
+
+  if [ "$should_update" != "1" ]; then
+    return 0
+  fi
+
+  # Skip updates if we have a dirty work tree
+  cd ~/.work-cli
+  local work_current_branch=$(git_current_branch)
+
+  if git_status_dirty ; then
+    cd - >/dev/null # restore dir
+    return 0
+  else
+    cd - >/dev/null # restore dir
+  fi
+
+  # We only update while we're on the main branch.
+  if [ "$work_current_branch" = "main" ]; then
+    cd ~/.work-cli
+    local update_result=$((git pull origin main 2>&1) || (cd - >/dev/null))
+    cd - >/dev/null # restore dir
+
+    if ! echo "$update_result" | grep -q "up to date" ; then
+      print_action "+ Auto-updating work-cli..."
+      echo
+      echo "$update_result"
+      echo
+    fi
+
+    touch "$last_updated"
+  fi
+
+  return 0
 }
 
 ####################################################################
@@ -304,7 +362,7 @@ function begin() {
 
   linear_id=$1
 
-  if ! git diff --quiet ; then
+  if ! git_status_dirty ; then
     echo "Error: git tree is dirty, cannot branch"
     echo
     git status
@@ -552,6 +610,8 @@ function print_help() {
 ####################################################################
 # Script start - arg parsing / command calling
 ####################################################################
+
+auto_update_work_cli_if_needed
 
 # https://sookocheff.com/post/bash/parsing-bash-script-arguments-with-shopts/
 subcommand=$1
