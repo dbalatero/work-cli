@@ -47,3 +47,14 @@ git clone https://github.com/dbalatero/work-cli.git ~/.work-cli
 cd ~/.work-cli
 bin/install       # don't forget to audit the script, you nerd
 ```
+
+## FAQ
+
+### I forget how to quit Vim, can I use VSCode to edit my PR descriptions?
+
+Sure, why not. Just add this to your `bashrc/zshrc/whatever` file and reload
+your shell:
+
+```bash
+export EDITOR="code --wait"
+```
