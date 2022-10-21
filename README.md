@@ -7,6 +7,29 @@ Awesome command line tools for managing the lifecycle of Github pull requests.
 * Open or focus your PR in the browser with `work pr show`
 * Ask for a review on Github with `work review alice`
 
+<table>
+<thead>
+<tr>
+<th>Creating a PR</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td valign="top" width="50%">
+
+![image](https://user-images.githubusercontent.com/59429/197116597-fca93c73-e9e3-4e80-a524-9ab26297856c.png)
+
+</td>
+<td valign="top" width="50%">
+
+![image](https://user-images.githubusercontent.com/59429/197116703-9291bd39-0a15-4040-b0a0-cb69127a850e.png)
+
+</td>
+</tr>
+</tbody>
+</table>
+
 ```
 $ work -h
 
