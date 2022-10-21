@@ -2,7 +2,6 @@
 
 # TODOs:
 #
-#   - Truncate branch name to 50 chars
 #   - Auto update by default every 48-72 hours
 
 set -e
@@ -177,7 +176,9 @@ function branch_name_from_title() {
   echo "$1" | \
     sed "s/[^[:alpha:] ]//g" | \
     tr '[:upper:]' '[:lower:]' | \
-    sed -r 's/ +/-/g'
+    sed -r 's/ +/-/g' |
+    cut -c1-40 |
+    sed 's/-$//g'
 }
 
 function edit_pr_in_editor() {
