@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# TODOs for Linear
+#
+#   - Switch the -l flag to take a full Linear issue URL or an issue ID.
+#   - Allow a --linear flag as an alias
+#   - Ensure that users have an API key
+#       - Make sure to chmod the directory 700 & the key 600 when saving it in a file
+#   - Add a Linear section in the PR description
+#       - Add link to the ticket
+#       - Add the title
+#   - Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
+#   - Import the ticket description as a collapsible section
+#   - Add a table of attached images
+
 set -e
 
 command_ran="$(basename $0) $@"
