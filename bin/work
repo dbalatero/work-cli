@@ -3,8 +3,8 @@
 # TODOs for Linear
 #
 #   x Switch the -l flag to take a full Linear issue URL or an issue ID.
-#   - Ensure that users have an API key
-#       - Make sure to chmod the directory 700 & the key 600 when saving it in a file
+#   x Ensure that users have an API key
+#       x Make sure to chmod the directory 700 & the key 600 when saving it in a file
 #   - Add a Linear section in the PR description
 #       - Add link to the ticket
 #       - Add the title
