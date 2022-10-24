@@ -69,6 +69,65 @@ function command_exists() {
   command -v "$name" >/dev/null 2>&1
 }
 
+linear_api_key_file="$HOME/.config/work-cli/keys/linear-api-key"
+
+function linear_api_key() {
+  cat "$linear_api_key_file"
+}
+
+function require_linear_api_key() {
+  if [[ ! -f "$linear_api_key_file" ]]; then
+    local url="https://linear.app/settings/api"
+
+    echo '
+******************************
+* Linear setup (first-time run)
+******************************
+'
+    dotsay "To use any Linear options with @yellow[[work]], you need an API key."
+    echo
+    dotsay "@yellow[[Set up your Linear API key]] by:"
+    echo
+    echo -n "  "
+    dotsay "  1. Opening the Linear settings page (@yellow[[$url]])"
+    echo -n "  "
+    dotsay "  2. Generating a @yellow[[Personal API Token]]"
+    echo   "  3. Pasting it back here"
+    echo
+    echo   "Would you like me to open the settings page?"
+    echo   "You will come back here to paste in your key afterwards."
+    echo
+
+    read -r -p "? (y/n) > " response
+    echo
+
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+      local keys_dir=$(dirname "$linear_api_key_file")
+      print_action "Ensuring $keys_dir exists"
+      mkdir -p "$keys_dir"
+      chmod 700 "$keys_dir"
+
+      print_action "Opening $url in Chrome"
+      open -na "Google Chrome" --args --new-window "$url"
+
+      echo
+      read -r -p "Create an API token, paste it back here, and press enter > " api_token
+
+      echo
+      echo "$api_token" > "$linear_api_key_file"
+      chmod 600 "$linear_api_key_file"
+
+      echo "Finished one-time Linear setup"
+      echo
+      echo "******************************"
+      echo
+    else
+      echo "non-yes answer, exiting"
+      exit 1
+    fi
+  fi
+}
+
 function ensure_gh_is_logged_in() {
   if ! gh auth status >/dev/null 2>&1 ; then
     echo '
@@ -255,6 +314,7 @@ function auto_update_work_cli_if_needed() {
 
   if [[ ! -f "$last_updated" ]]; then
     touch "$last_updated"
+    chmod 600 "$last_updated"
   else
     local last_modified_seconds=$(date -r "$last_updated" +%s)
     local current_seconds=$(date +%s)
@@ -394,9 +454,10 @@ EOF
 }
 
 function begin() {
-  require_gh
-
   linear_id=$1
+
+  require_gh
+  [ ! -z "$linear_id" ] && require_linear_api_key
 
   if ! git_status_clean ; then
     abort_error "git tree is dirty, cannot branch" "git status"
