@@ -5,12 +5,12 @@
 #   x Switch the -l flag to take a full Linear issue URL or an issue ID.
 #   x Ensure that users have an API key
 #       x Make sure to chmod the directory 700 & the key 600 when saving it in a file
+#   x Take the title from the ticket
 #   - Add a Linear section in the PR description
 #       - Add link to the ticket
 #       - Add the title
-#   - Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
 #   - Import the ticket description as a collapsible section
-#   - Add a table of attached images
+#   - Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
 
 set -e
 
@@ -125,6 +125,34 @@ function require_linear_api_key() {
       echo "non-yes answer, exiting"
       exit 1
     fi
+  fi
+}
+
+function get_linear_issue() {
+  local issue_id="$1"
+
+  local raw_json=$(
+    curl -s \
+      -X POST \
+      -H "Content-Type: application/json" \
+      -H "Authorization: $(linear_api_key)" \
+      --data '{ "query": "{ issue(id: \"'$issue_id'\") { identifier description title url } }" }' \
+      https://api.linear.app/graphql
+  ) && RC=$? || RC=$?
+
+  if test $RC -ne 0; then
+    echo "Error from curl retrieving Linear issue"
+    return 1
+  fi
+
+  if [ "$(echo "$raw_json" | jq 'has("errors")')" = "true" ]; then
+    # Handle errors
+    local message=$(echo "$raw_json" | jq ".errors[0].extensions.userPresentableMessage")
+    echo "Could not retrieve Linear issue. Linear said: $message"
+    return 1
+  else
+    echo "$raw_json" | jq ".data.issue"
+    return 0
   fi
 }
 
@@ -457,23 +485,45 @@ function begin() {
   linear_id=$1
 
   require_gh
+  require_jq
   [ ! -z "$linear_id" ] && require_linear_api_key
 
   if ! git_status_clean ; then
     abort_error "git tree is dirty, cannot branch" "git status"
   fi
 
+  if [ ! -z "$linear_id" ]; then
+    # Fetch the Linear issue
+    local linear_issue
+    linear_issue=$(get_linear_issue "$linear_id") && RC=$? || RC=$?
+
+    if test $RC -ne 0; then
+      abort_error "$linear_issue"
+    fi
+
+    local linear_title=$(echo "$linear_issue" | jq --raw-output ".title")
+  fi
+
   echo
-  read -r -p "Enter a title for your PR:
 
-  > " pr_title
+  if [ -z "$linear_title" ]; then
+    echo "Enter a title for your PR:"
+  else
+    dotsay "Enter a title for your PR, or press enter to default to @yellow[[$linear_title]]:"
+  fi
 
+  echo
+  read -r -p "> " pr_title
   echo
 
   pr_title=$(trim "$pr_title")
 
   if [ "$pr_title" = "" ]; then
-    abort_error "Empty PR title, aborting"
+    if [ -z "$linear_title" ]; then
+      abort_error "Empty PR title, aborting"
+    else
+      pr_title=$(trim "$linear_title")
+    fi
   fi
 
   local base_branch=$(git_main_branch)
