@@ -2,8 +2,7 @@
 
 # TODOs for Linear
 #
-#   - Switch the -l flag to take a full Linear issue URL or an issue ID.
-#   - Allow a --linear flag as an alias
+#   x Switch the -l flag to take a full Linear issue URL or an issue ID.
 #   - Ensure that users have an API key
 #       - Make sure to chmod the directory 700 & the key 600 when saving it in a file
 #   - Add a Linear section in the PR description
@@ -25,6 +24,20 @@ function indent() {
 function dotsay() {
   local result=$(_colorized $@)
   echo "$result"
+}
+
+function abort_error() {
+  local msg="$1"
+  local help_function="$2"
+
+  dotsay "@red[[Error: $msg]]"
+
+  if [ "$help_function" != "" ]; then
+    echo
+    $help_function
+  fi
+
+  exit 1
 }
 
 function print_action() {
@@ -200,8 +213,7 @@ function branch_name_from_title() {
 
 function edit_pr_in_editor() {
   if [ "$EDITOR" = "" ]; then
-    echo "Error: your EDITOR is not set"
-    exit 1
+    abort_error "your EDITOR is not set"
   fi
 
   # Create the description file
@@ -357,6 +369,7 @@ ${BOLD}USAGE${RESET}
 
 ${BOLD}FLAGS${RESET}
   -l    Linear ticket ID you'd like attached to this pull request (STA-123)
+        Also accepts a full ticket URL (https://linear.app/project/issue/STA-123/some-foo-ticket)
 
 ${BOLD}INHERITED FLAGS${RESET}
   -h    Show help for this command
@@ -371,6 +384,10 @@ ${BOLD}EXAMPLES${RESET}
   git checkout main
   work begin -l STA-123
 
+  # If it's easier to paste in the full Linear ticket URL, that works too
+  git checkout main
+  work begin -l https://linear.app/project/issue/STA-123/some-foo-ticket
+
 ${BOLD}LEARN MORE${RESET}
   Use 'work <command> <subcommand> -h' for more information about a command.
 EOF
@@ -382,11 +399,7 @@ function begin() {
   linear_id=$1
 
   if ! git_status_clean ; then
-    echo "Error: git tree is dirty, cannot branch"
-    echo
-    git status
-    echo
-    exit 1
+    abort_error "git tree is dirty, cannot branch" "git status"
   fi
 
   echo
@@ -399,8 +412,7 @@ function begin() {
   pr_title=$(trim "$pr_title")
 
   if [ "$pr_title" = "" ]; then
-    echo "Error: Empty PR title, aborting"
-    exit 1
+    abort_error "Empty PR title, aborting"
   fi
 
   local base_branch=$(git_main_branch)
@@ -632,6 +644,28 @@ function print_help() {
 }
 
 ####################################################################
+# Validate/parse options
+####################################################################
+
+function validate_and_extract_linear_id() {
+  local linear_input="$1"
+
+  # First see if it matches a https://linear.app url
+  if echo "$linear_input" | grep -q '^https://linear.app/.\+/issue/[^/]\+' ; then
+    echo "$linear_input" | sed -E 's/^.*\/issue\/([^/]+)\/.*/\1/g'
+    return 0
+  fi
+
+  # Next see if it matches a straight up ID like "PROJ-123"
+  if echo "$linear_input" | grep -q "^[^-]\+-\d\+$" ; then
+    echo "$linear_input"
+    return 0
+  fi
+
+  return 1
+}
+
+####################################################################
 # Script start - arg parsing / command calling
 ####################################################################
 
@@ -656,19 +690,14 @@ case "$subcommand" in
           exit 0
           ;;
         l )
-          linear_id=$OPTARG
+          linear_id=$(validate_and_extract_linear_id "$OPTARG") || \
+            abort_error "Could not parse -l flag (Linear ID). \"$OPTARG\" is not a valid value." help_begin
           ;;
         \? )
-          dotsay "@red[[Error: Invalid Option: -$OPTARG]]" 1>&2
-          echo
-          help_begin
-          exit 1
+          abort_error "Invalid option: -$OPTARG" help_begin
           ;;
         : )
-          dotsay "@red[[Invalid Option: -$OPTARG requires an argument]]" 1>&2
-          echo
-          help_begin
-          exit 1
+          abort_error "Invalid option: -$OPTARG requires an argument" help_begin
           ;;
       esac
     done
@@ -680,10 +709,7 @@ case "$subcommand" in
     pr_command=$1
 
     if [ "$pr_command" = "" ]; then
-      dotsay "@red[[Error: work pr requires a subcommand]]"
-      echo
-      help_pr
-      exit 1
+      abort_error "work pr requires a subcommand" help_pr
     else
       shift
     fi
@@ -700,10 +726,7 @@ case "$subcommand" in
         print_help "pr_switch" || pr_switch
         ;;
       *)
-        dotsay "@red[[Error: Unknown work pr subcommand: $pr_command]]"
-        echo
-        help_pr
-        exit 1
+        abort_error "Unknown work pr subcommand: $pr_command" help_pr
         ;;
     esac
     ;;
@@ -711,10 +734,7 @@ case "$subcommand" in
     reviewer=$(echo "$1" | sed 's/@//g')
 
     if [ "$reviewer" = "" ]; then
-      dotsay "@red[[Error: No reviewer passed]]"
-      echo
-      help_review
-      exit 1
+      abort_error "No reviewer passed" help_review
     else
       shift
     fi
@@ -729,7 +749,6 @@ case "$subcommand" in
     exit 0
     ;;
   *)
-    echo "Unknown subcommand: $subcommand"
-    exit 1
+    abort_error "Unknown subcommand: $subcommand" help_work
     ;;
 esac
