@@ -2,6 +2,7 @@
 
 # TODOs for Linear
 #
+#   - Detect when not on the main branch and warn
 #   x Switch the -l flag to take a full Linear issue URL or an issue ID.
 #   x Ensure that users have an API key
 #       x Make sure to chmod the directory 700 & the key 600 when saving it in a file
@@ -209,6 +210,25 @@ function ensure_gh_is_logged_in() {
     else
       echo "Done with setup"
     fi
+  fi
+}
+
+function ensure_branch_does_not_exist_on_remote() {
+  local branch="$1"
+  git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1 && RC=$? || RC=$?
+
+  if test $RC -eq 0; then
+    # exit code 0 == the branch exists
+    abort_error "the \"$branch\" branch already exists on origin (Github). Try again with a different PR title, or delete the remote branch by running 'git push origin :$branch'."
+  fi
+}
+
+function ensure_branch_does_not_exist_locally() {
+  local branch="$1"
+  local existed_in_local=$(git branch --list "$branch")
+
+  if [[ ! -z "$existed_in_local" ]]; then
+    abort_error "the \"$branch\" branch exists locally. Try again with a different PR title, or remove the branch by running 'git branch -D $branch'"
   fi
 }
 
@@ -534,6 +554,9 @@ function begin() {
   else
     branch_name="$USER/$linear_id/$(branch_name_from_title "$pr_title")"
   fi
+
+  ensure_branch_does_not_exist_on_remote "$branch_name"
+  ensure_branch_does_not_exist_locally "$branch_name"
 
   print_action "Fetching origin main"
   git fetch origin $base_branch
