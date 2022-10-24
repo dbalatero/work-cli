@@ -7,10 +7,10 @@
 #   x Ensure that users have an API key
 #       x Make sure to chmod the directory 700 & the key 600 when saving it in a file
 #   x Take the title from the ticket
-#   - Add a Linear section in the PR description
-#       - Add link to the ticket
-#       - Add the title
-#   - Import the ticket description as a collapsible section
+#   x Add a Linear section in the PR description
+#       x Add link to the ticket
+#       x Add the title
+#   x Import the ticket description as a collapsible section
 #   - Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
 
 set -e
@@ -19,7 +19,9 @@ command_ran="$(basename $0) $@"
 script_args="$@"
 
 function indent() {
-  sed 's/^/    /'
+  local amount=${1:-    }
+
+  sed 's/^/'"$amount"'/'
 }
 
 function dotsay() {
@@ -501,6 +503,29 @@ ${BOLD}LEARN MORE${RESET}
 EOF
 }
 
+function linear_description() {
+  local linear_issue="$1"
+
+  local description=$(echo "$linear_issue" | jq --raw-output ".description")
+  local identifier=$(echo "$linear_issue" | jq --raw-output ".identifier")
+  local title=$(echo "$linear_issue" | jq --raw-output ".title")
+  local url=$(echo "$linear_issue" | jq --raw-output ".url")
+
+  cat << EOF
+### Linear
+
+:sparkles: **$title**
+:globe_with_meridians: [$identifier]($url)
+
+<details>
+  <summary>Description</summary>
+
+$(echo "$description" | indent "  ")
+</details>
+
+EOF
+}
+
 function begin() {
   linear_id=$1
 
@@ -576,11 +601,21 @@ function begin() {
 
   print_action "Creating PR"
 
+  local temp_file=/tmp/work-cli-pr-description.md
+  rm -f $temp_file
+
+  # TODO: handle .github/PULL_REQUEST_TEMPLATE.md
+  if [ -z "$linear_issue" ]; then
+    echo "<!-- body -->" > $temp_file
+  else
+    linear_description "$linear_issue" > $temp_file
+  fi
+
   local pr_url=$(
     gh pr create \
       --assignee "@me" \
       --base "$base_branch" \
-      --body "<!-- body -->" \
+      --body-file "$temp_file" \
       --draft \
       --head "$branch_name" \
       --title "$pr_title"
