@@ -1,18 +1,8 @@
 #!/usr/bin/env bash
 
-# TODOs for Linear
+# TODOs
 #
 #   - Detect when not on the main branch and warn
-#   x Switch the -l flag to take a full Linear issue URL or an issue ID.
-#   x Ensure that users have an API key
-#       x Make sure to chmod the directory 700 & the key 600 when saving it in a file
-#   x Take the title from the ticket
-#   x Add a Linear section in the PR description
-#       x Add link to the ticket
-#       x Add the title
-#   x Import the ticket description as a collapsible section
-#   x Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
-#
 #   - Add shellcheck to CI
 
 set -e
