@@ -259,7 +259,17 @@ function git_current_branch() {
 }
 
 function git_main_branch() {
-  sed -e "s/^.*\///" < .git/refs/remotes/origin/HEAD
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel)
+
+  if [[ -f "$repo_root/.git/refs/heads/main" ]]; then
+    echo "main"
+  elif [[ -f "$repo_root/.git/refs/heads/master" ]]; then
+    echo "master"
+  else
+    echo "unknown"
+    exit 1
+  fi
 }
 
 function git_status_clean() {
