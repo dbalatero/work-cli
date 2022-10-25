@@ -475,11 +475,13 @@ Prompts you for a new PR title, and:
   * Pushes & creates a new pull request
 
 ${BOLD}USAGE${RESET}
-  work begin
+  work begin [flags]
 
 ${BOLD}FLAGS${RESET}
-  -l    Linear ticket ID you'd like attached to this pull request (STA-123)
-        Also accepts a full ticket URL (https://linear.app/project/issue/STA-123/some-foo-ticket)
+  -l, --linear ticket
+      Linear ticket ID you'd like attached to this pull request (STA-123).
+      Also accepts a full ticket URL
+      (https://linear.app/project/issue/STA-123/some-foo-ticket)
 
 ${BOLD}INHERITED FLAGS${RESET}
   -h    Show help for this command
@@ -840,7 +842,8 @@ function validate_and_extract_linear_id() {
 
 auto_update_work_cli_if_needed
 
-# https://sookocheff.com/post/bash/parsing-bash-script-arguments-with-shopts/
+# Using while [[ $# -gt 0 ]] to parse opts
+# https://stackoverflow.com/a/39398359
 subcommand=$1
 
 if [ "$subcommand" = "" ]; then
@@ -852,25 +855,22 @@ fi
 
 case "$subcommand" in
   begin)
-    while getopts ":l:h" opt; do
-      case ${opt} in
-        h )
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        -h)
           help_begin
           exit 0
           ;;
-        l )
-          linear_id=$(validate_and_extract_linear_id "$OPTARG") || \
-            abort_error "Could not parse -l flag (Linear ID). \"$OPTARG\" is not a valid value." help_begin
+        -l|--linear)
+          linear_id=$(validate_and_extract_linear_id "$2") || \
+            abort_error "Could not parse -l flag (Linear ID). \"$2\" is not a valid value." help_begin
+          shift
           ;;
-        \? )
-          abort_error "Invalid option: -$OPTARG" help_begin
-          ;;
-        : )
-          abort_error "Invalid option: -$OPTARG requires an argument" help_begin
+        *)
+          abort_error "Invalid option: $1" help_begin
           ;;
       esac
     done
-    shift $((OPTIND -1))
 
     begin "$linear_id"
     ;;
