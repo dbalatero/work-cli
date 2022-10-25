@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+shellcheck \
+  -e SC2001 \
+  bin/*
