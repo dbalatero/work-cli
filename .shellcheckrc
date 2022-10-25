@@ -1,0 +1,2 @@
+# Don't care about sed warnings
+disable=SC2001
