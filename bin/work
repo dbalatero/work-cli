@@ -11,7 +11,9 @@
 #       x Add link to the ticket
 #       x Add the title
 #   x Import the ticket description as a collapsible section
-#   - Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
+#   x Add a --closes flag to work begin to add a "Closes BLAH-123" text to the PR description.
+#
+#   - Add shellcheck to CI
 
 set -e
 
@@ -478,6 +480,11 @@ ${BOLD}USAGE${RESET}
   work begin [flags]
 
 ${BOLD}FLAGS${RESET}
+  --[no-]-auto-close
+      Whether you want the Linear ticket to be auto-closed or not when your PR
+      merges. The default is \`--closes\` as we think this is probably the
+      default 90% of the time.
+
   -l, --linear ticket
       Linear ticket ID you'd like attached to this pull request (STA-123).
       Also accepts a full ticket URL
@@ -500,6 +507,9 @@ ${BOLD}EXAMPLES${RESET}
   git checkout main
   work begin -l https://linear.app/project/issue/STA-123/some-foo-ticket
 
+  # Start a new branch off a Linear ticket, but don't mark it as "Closes"
+  work begin -l STA-123 --no-auto-close
+
 ${BOLD}LEARN MORE${RESET}
   Use 'work <command> <subcommand> -h' for more information about a command.
 EOF
@@ -507,6 +517,7 @@ EOF
 
 function linear_description() {
   local linear_issue="$1"
+  local auto_close="$2"
 
   local description=$(echo "$linear_issue" | jq --raw-output ".description")
   local identifier=$(echo "$linear_issue" | jq --raw-output ".identifier")
@@ -526,10 +537,16 @@ $(echo "$description" | indent "  ")
 </details>
 
 EOF
+
+  # Add a magic comment to the PR description if the --closes flag is passed.
+  if [ "$auto_close" = "true" ]; then
+    echo "Closes $identifier"
+  fi
 }
 
 function begin() {
-  linear_id=$1
+  local linear_id=$1
+  local auto_close=$2
 
   require_gh
   require_jq
@@ -610,7 +627,7 @@ function begin() {
   if [ -z "$linear_issue" ]; then
     echo "<!-- body -->" > $temp_file
   else
-    linear_description "$linear_issue" > $temp_file
+    linear_description "$linear_issue" "$auto_close" > $temp_file
   fi
 
   local pr_url=$(
@@ -855,11 +872,19 @@ fi
 
 case "$subcommand" in
   begin)
+    auto_close=true
+
     while [[ $# -gt 0 ]]; do
       case "$1" in
         -h)
           help_begin
           exit 0
+          ;;
+        --auto-close)
+          auto_close=true
+          ;;
+        --no-auto-close)
+          auto_close=false
           ;;
         -l|--linear)
           linear_id=$(validate_and_extract_linear_id "$2") || \
@@ -870,9 +895,12 @@ case "$subcommand" in
           abort_error "Invalid option: $1" help_begin
           ;;
       esac
+
+      # Shift after checking all the cases to get the next option
+      shift
     done
 
-    begin "$linear_id"
+    begin "$linear_id" "$auto_close"
     ;;
   pr)
     pr_command=$1
