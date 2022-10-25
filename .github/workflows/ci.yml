@@ -24,6 +24,9 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      
+
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@1.1.0
+        env:
+          # Opt out of these error types
+          SHELLCHECK_OPTS: -e SC2001

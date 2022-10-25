@@ -7,8 +7,8 @@
 
 set -e
 
-command_ran="$(basename $0) $@"
-script_args="$@"
+command_ran="$(basename "$0") $*"
+script_args=("$@")
 
 function indent() {
   local amount=${1:-    }
@@ -17,7 +17,8 @@ function indent() {
 }
 
 function dotsay() {
-  local result=$(_colorized $@)
+  local result
+  result=$(_colorized "$@")
   echo "$result"
 }
 
@@ -97,7 +98,9 @@ function require_linear_api_key() {
     echo
 
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-      local keys_dir=$(dirname "$linear_api_key_file")
+      local keys_dir
+      keys_dir=$(dirname "$linear_api_key_file")
+
       print_action "Ensuring $keys_dir exists"
       mkdir -p "$keys_dir"
       chmod 700 "$keys_dir"
@@ -126,12 +129,13 @@ function require_linear_api_key() {
 function get_linear_issue() {
   local issue_id="$1"
 
-  local raw_json=$(
+  local raw_json
+  raw_json=$(
     curl -s \
       -X POST \
       -H "Content-Type: application/json" \
       -H "Authorization: $(linear_api_key)" \
-      --data '{ "query": "{ issue(id: \"'$issue_id'\") { identifier description title url } }" }' \
+      --data '{ "query": "{ issue(id: \"'"$issue_id"'\") { identifier description title url } }" }' \
       https://api.linear.app/graphql
   ) && RC=$? || RC=$?
 
@@ -142,7 +146,8 @@ function get_linear_issue() {
 
   if [ "$(echo "$raw_json" | jq 'has("errors")')" = "true" ]; then
     # Handle errors
-    local message=$(echo "$raw_json" | jq ".errors[0].extensions.userPresentableMessage")
+    local message
+    message=$(echo "$raw_json" | jq ".errors[0].extensions.userPresentableMessage")
     echo "Could not retrieve Linear issue. Linear said: $message"
     return 1
   else
@@ -219,9 +224,10 @@ function ensure_branch_does_not_exist_on_remote() {
 
 function ensure_branch_does_not_exist_locally() {
   local branch="$1"
-  local existed_in_local=$(git branch --list "$branch")
+  local existed_in_local
+  existed_in_local=$(git branch --list "$branch")
 
-  if [[ ! -z "$existed_in_local" ]]; then
+  if [[ -n "$existed_in_local" ]]; then
     abort_error "the \"$branch\" branch exists locally. Try again with a different PR title, or remove the branch by running 'git branch -D $branch'"
   fi
 }
@@ -264,7 +270,9 @@ function git_status_clean() {
 # https://medium.com/@bit2pixel/how-i-navigate-hundreds-of-tabs-on-chrome-with-jxa-and-alfred-9bbf971af02b
 function focus_tab_or_open() {
   local url="$1"
-  local focus_result=$(osascript -s o -l JavaScript << EOF 2>&1
+
+  local focus_result
+  focus_result=$(osascript -s o -l JavaScript << EOF 2>&1
       const chrome = Application('Google Chrome');
       let found = false;
 
@@ -318,17 +326,21 @@ function edit_pr_in_editor() {
   fi
 
   # Create the description file
-  local branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
-  local description_dir=/tmp/work-cli/descriptions
-  local description_file=$description_dir/$branch_name_basename.md
+  local branch_name_basename
+  local description_dir
+  local description_file
 
-  mkdir -p $description_dir
-  gh pr view --json body -q ".body" > $description_file
+  branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
+  description_dir=/tmp/work-cli/descriptions
+  description_file=$description_dir/$branch_name_basename.md
+
+  mkdir -p "$description_dir"
+  gh pr view --json body -q ".body" > "$description_file"
 
   print_action "Opening $description_file..."
 
   # Open Vim
-  $EDITOR $description_file
+  $EDITOR "$description_file"
   echo "Done editing"
   echo
 
@@ -346,7 +358,7 @@ function edit_pr_in_editor() {
   echo
 
   # Cleanup
-  rm $description_file
+  rm "$description_file"
 }
 
 function auto_update_work_cli_if_needed() {
@@ -358,9 +370,13 @@ function auto_update_work_cli_if_needed() {
     touch "$last_updated"
     chmod 600 "$last_updated"
   else
-    local last_modified_seconds=$(date -r "$last_updated" +%s)
-    local current_seconds=$(date +%s)
-    local elapsed_seconds=$((current_seconds - last_modified_seconds))
+    local last_modified_seconds
+    local current_seconds
+    local elapsed_seconds
+
+    last_modified_seconds=$(date -r "$last_updated" +%s)
+    current_seconds=$(date +%s)
+    elapsed_seconds=$((current_seconds - last_modified_seconds))
 
     # Only attempt an auto update every 48 hours
     local min_elapsed_seconds=172800
@@ -376,7 +392,8 @@ function auto_update_work_cli_if_needed() {
 
   # Skip updates if we have a dirty work tree
   cd ~/.work-cli
-  local work_current_branch=$(git_current_branch)
+  local work_current_branch
+  work_current_branch=$(git_current_branch)
 
   if ! git_status_clean ; then
     cd - >/dev/null # restore dir
@@ -388,7 +405,8 @@ function auto_update_work_cli_if_needed() {
   # We only update while we're on the main branch.
   if [ "$work_current_branch" = "main" ]; then
     cd ~/.work-cli
-    local update_result=$((git pull origin main 2>&1) || (cd - >/dev/null))
+    local update_result
+    update_result=$(git pull origin main 2>&1) || (cd - >/dev/null)
     cd - >/dev/null # restore dir
 
     if ! echo "$update_result" | grep -q "up to date" ; then
@@ -509,10 +527,15 @@ function linear_description() {
   local linear_issue="$1"
   local auto_close="$2"
 
-  local description=$(echo "$linear_issue" | jq --raw-output ".description")
-  local identifier=$(echo "$linear_issue" | jq --raw-output ".identifier")
-  local title=$(echo "$linear_issue" | jq --raw-output ".title")
-  local url=$(echo "$linear_issue" | jq --raw-output ".url")
+  local description
+  local identifier
+  local title
+  local url
+
+  description=$(echo "$linear_issue" | jq --raw-output ".description")
+  identifier=$(echo "$linear_issue" | jq --raw-output ".identifier")
+  title=$(echo "$linear_issue" | jq --raw-output ".title")
+  url=$(echo "$linear_issue" | jq --raw-output ".url")
 
   cat << EOF
 ### Linear
@@ -540,13 +563,15 @@ function begin() {
 
   require_gh
   require_jq
-  [ ! -z "$linear_id" ] && require_linear_api_key
+  [ -n "$linear_id" ] && require_linear_api_key
 
   if ! git_status_clean ; then
     abort_error "git tree is dirty, cannot branch" "git status"
   fi
 
-  if [ ! -z "$linear_id" ]; then
+  local linear_title
+
+  if [ -n "$linear_id" ]; then
     # Fetch the Linear issue
     local linear_issue
     linear_issue=$(get_linear_issue "$linear_id") && RC=$? || RC=$?
@@ -555,7 +580,7 @@ function begin() {
       abort_error "$linear_issue"
     fi
 
-    local linear_title=$(echo "$linear_issue" | jq --raw-output ".title")
+    linear_title=$(echo "$linear_issue" | jq --raw-output ".title")
   fi
 
   echo
@@ -580,8 +605,9 @@ function begin() {
     fi
   fi
 
-  local base_branch=$(git_main_branch)
   local branch_name
+  local base_branch
+  base_branch=$(git_main_branch)
 
   if [ "$linear_id" = "" ]; then
     branch_name="$USER/$(branch_name_from_title "$pr_title")"
@@ -593,7 +619,7 @@ function begin() {
   ensure_branch_does_not_exist_locally "$branch_name"
 
   print_action "Fetching origin main"
-  git fetch origin $base_branch
+  git fetch origin "$base_branch"
   echo
 
   print_action "Creating $branch_name"
@@ -620,7 +646,8 @@ function begin() {
     linear_description "$linear_issue" "$auto_close" > $temp_file
   fi
 
-  local pr_url=$(
+  local pr_url
+  pr_url=$(
     gh pr create \
       --assignee "@me" \
       --base "$base_branch" \
@@ -705,20 +732,23 @@ function pr_switch() {
   require_jq
   require_gh
 
-  local pull_requests=$(gh pr list --author "@me" --json headRefName,number,title,url)
+  local pull_requests
+  pull_requests=$(gh pr list --author "@me" --json headRefName,number,title,url)
 
   if [ "$pull_requests" = "[]" ]; then
     echo "You have no open PRs in this repo."
     exit 0
   fi
 
-  local as_table=$(
-    echo $pull_requests | \
+  local as_table
+  as_table=$(
+    echo "$pull_requests" | \
       jq --raw-output '. | map("\(.number),\(.title),\(.headRefName)") | flatten[]' | \
       sort
   )
 
-  local selected_pr=$(
+  local selected_pr
+  selected_pr=$(
     echo -e "ID,Title,Branch name\n$as_table" | \
       column -t -s ',' | \
       fzf \
@@ -733,9 +763,12 @@ function pr_switch() {
     exit 0
   fi
 
-  local selected_num=$(echo $selected_pr | awk '{print $1}')
-  local selected_branch=$(
-    echo $pull_requests | \
+  local selected_branch
+  local selected_num
+
+  selected_num=$(echo "$selected_pr" | awk '{print $1}')
+  selected_branch=$(
+    echo "$pull_requests" | \
       jq --raw-output ".[] | select(.number == $selected_num) | .headRefName"
   )
 
@@ -814,7 +847,7 @@ function print_help() {
   local command=$1
 
   if [[ "${script_args[*]}" =~ "-h" ]]; then
-    help_${command}
+    help_"${command}"
     return 0
   else
     return 1
