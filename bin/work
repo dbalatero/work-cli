@@ -3,7 +3,6 @@
 # TODOs
 #
 #   - Detect when not on the main branch and warn
-#   - Add shellcheck to CI
 
 set -e
 
