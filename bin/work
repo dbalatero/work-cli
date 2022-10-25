@@ -211,6 +211,18 @@ function ensure_gh_is_logged_in() {
   fi
 }
 
+function ensure_branch_is_on_main() {
+  local main_branch
+  local current_branch
+
+  main_branch=$(git_main_branch)
+  current_branch=$(git_current_branch)
+
+  if [ "$main_branch" != "$current_branch" ]; then
+    abort_error "work begin does not currently support branching off a non-$main_branch branch (you are on '$current_branch'). You can \`git checkout $main_branch\` and try running \`$command_ran\` again."
+  fi
+}
+
 function ensure_branch_does_not_exist_on_remote() {
   local branch="$1"
   git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1 && RC=$? || RC=$?
@@ -577,6 +589,8 @@ function begin() {
   if ! git_status_clean ; then
     abort_error "git tree is dirty, cannot branch" "git status"
   fi
+
+  ensure_branch_is_on_main
 
   local linear_title
 
