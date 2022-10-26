@@ -353,44 +353,31 @@ function branch_name_from_title() {
 }
 
 function edit_pr_in_editor() {
+  local __resultvar="$1"
+
   if [ "$EDITOR" = "" ]; then
     abort_error "your EDITOR is not set"
   fi
 
   # Create the description file
-  local branch_name_basename
   local description_dir
-  local description_file
-
-  branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
   description_dir=/tmp/work-cli/descriptions
+  mkdir -p "$description_dir"
+
+  local branch_name_basename
+  local description_file
+  branch_name_basename=$(git_current_branch | sed "s/\\//-/g")
   description_file=$description_dir/$branch_name_basename.md
 
   mkdir -p "$description_dir"
-  gh pr view --json body -q ".body" > "$description_file"
 
-  print_action "Opening $description_file..."
+  # Remove ^M chars if they exist (they do :\).
+  gh pr view --json body -q ".body" | sed -e 's///' > "$description_file"
 
-  # Open Vim
+  # Open Vim/whatever
   $EDITOR "$description_file"
-  echo "Done editing"
-  echo
 
-  print_action "Pushing branch to Github..."
-  git push -u --force-with-lease origin "$(git_current_branch)"
-  echo
-
-  # Update the PR
-  print_action "Updating PR description..."
-  gh pr edit -F "$description_file"
-  echo
-
-  print_action "Marking PR ready..."
-  gh pr ready
-  echo
-
-  # Cleanup
-  rm "$description_file"
+  eval "$__resultvar"="'$description_file'"
 }
 
 function auto_update_work_cli_if_needed() {
@@ -810,6 +797,48 @@ function pr_switch() {
   git checkout "$selected_branch"
 }
 
+function help_pr_edit() {
+  cat << EOF
+Edit your pull request in your \$EDITOR ($EDITOR).
+
+This script will:
+
+- Open ${YELLOW}$EDITOR${RESET}, allowing you to edit the PR description
+- On save/exit from your editor, the PR description on Github will be updated
+
+${BOLD}USAGE${RESET}
+  work pr edit
+
+${BOLD}FLAGS${RESET}
+  none
+
+${BOLD}INHERITED FLAGS${RESET}
+  -h    Show help for this command
+
+${BOLD}EXAMPLES${RESET}
+  # Edit your PR description
+  work pr edit
+
+${BOLD}LEARN MORE${RESET}
+  Use 'work <command> <subcommand> -h' for more information about a command.
+EOF
+}
+
+function pr_edit() {
+  edit_pr_in_editor description_body_file
+
+  dotsay "Saved your PR description in @yellow[[$description_body_file]]"
+  echo
+
+  print_action "Updating the PR description..."
+  gh pr edit -F "$description_body_file"
+  echo
+
+  # Cleanup as last step
+  print_action "Cleaning up description file..."
+  rm "$description_body_file"
+}
+
 function help_review() {
   cat << EOF
 Request a pull request review.
@@ -838,12 +867,34 @@ EOF
 }
 
 function review() {
-  edit_pr_in_editor
+  # Edit the PR
+  local description_body_file
+  edit_pr_in_editor description_body_file
+
+  dotsay "Saved your PR description in @yellow[[$description_body_file]]"
+  echo
+
+  print_action "Pushing branch to Github..."
+  git push -u --force-with-lease origin "$(git_current_branch)"
+  echo
+
+  # Update the PR
+  print_action "Updating PR description..."
+  gh pr edit -F "$description_body_file"
+  echo
+
+  print_action "Marking PR ready..."
+  gh pr ready
+  echo
 
   # Assign reviewer
   print_action "Assigning reviewer..."
   gh pr edit --add-reviewer "$reviewer"
   echo
+
+  # Cleanup as last step
+  print_action "Cleaning up description file..."
+  rm "$description_body_file"
 }
 
 function help_setup() {
@@ -972,6 +1023,9 @@ case "$subcommand" in
       -h)
         help_pr
         exit 0
+        ;;
+      edit)
+        print_help "pr_edit" || pr_edit
         ;;
       show)
         print_help "pr_show" || pr_show
