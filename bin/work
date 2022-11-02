@@ -660,11 +660,18 @@ function begin() {
   local temp_file=/tmp/work-cli-pr-description.md
   rm -f $temp_file
 
-  # TODO: handle .github/PULL_REQUEST_TEMPLATE.md
-  if [ -z "$linear_issue" ]; then
-    echo "<!-- body -->" > $temp_file
+  local pr_template_file
+  pr_template_file=".github/PULL_REQUEST_TEMPLATE.md"
+
+  if [ -f "$pr_template_file" ]; then
+    cp "$pr_template_file" "$temp_file"
   else
-    linear_description "$linear_issue" "$auto_close" > $temp_file
+    touch "$temp_file"
+  fi
+
+  if [ -n "$linear_issue" ]; then
+    echo >> $temp_file
+    linear_description "$linear_issue" "$auto_close" >> $temp_file
   fi
 
   local pr_url
