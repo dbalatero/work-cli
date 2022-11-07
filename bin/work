@@ -21,7 +21,7 @@ command_ran="$(basename "$0") $*"
 script_args=("$@")
 
 function indent() {
-  local amount=${1:-    }
+  local amount="    "
 
   sed 's/^/'"$amount"'/'
 }
