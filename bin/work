@@ -546,12 +546,10 @@ function linear_description() {
   local linear_issue="$1"
   local auto_close="$2"
 
-  local description
   local identifier
   local title
   local url
 
-  description=$(echo "$linear_issue" | jq --raw-output ".description")
   identifier=$(echo "$linear_issue" | jq --raw-output ".identifier")
   title=$(echo "$linear_issue" | jq --raw-output ".title")
   url=$(echo "$linear_issue" | jq --raw-output ".url")
@@ -562,17 +560,13 @@ function linear_description() {
 :sparkles: **$title**
 :globe_with_meridians: [$identifier]($url)
 
-<details>
-  <summary>Description</summary>
-
-$(echo "$description" | indent "  ")
-</details>
-
 EOF
 
   # Add a magic comment to the PR description if the --closes flag is passed.
   if [ "$auto_close" = "true" ]; then
-    echo "Closes $identifier"
+    echo "---"
+    echo
+    echo ":sparkles: Closes $identifier"
   fi
 }
 
