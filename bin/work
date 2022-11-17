@@ -782,7 +782,7 @@ function pr_switch() {
       fzf \
         --header "Select a PR to switch branches" \
         --layout reverse \
-        --height=10 \
+        --height=20 \
         --header-lines 1
   )
 
