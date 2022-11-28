@@ -69,6 +69,10 @@ function _colorized() {
     -e "s/@u/$(tput sgr 0 1)/g"
 }
 
+function print_done() {
+  dotsay "@green[[✔]] Done"
+}
+
 function command_exists() {
   local name=$1
 
@@ -685,12 +689,12 @@ function begin() {
       --title "$pr_title"
   )
 
-  echo "Done"
+  print_done
   echo
 
   print_action "Opening PR in Chrome"
   open -a "Google Chrome" "$pr_url"
-  echo "Done"
+  print_done
 }
 
 function help_pr_show() {
