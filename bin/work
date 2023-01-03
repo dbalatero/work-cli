@@ -213,7 +213,6 @@ function ensure_gh_is_logged_in() {
 
     echo "$api_token" | gh auth login \
       --hostname github.com \
-      --git-protocol ssh \
       --with-token
 
     if ! gh auth status >/dev/null 2>&1 ; then
